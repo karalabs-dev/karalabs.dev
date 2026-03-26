@@ -3,14 +3,19 @@ import BlogPost from '../../layouts/BlogPost.astro';
 import { getCollection, render } from 'astro:content';
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog', ({ data }) => !data.draft);
-  return posts.map((post) => ({
+  const posts = (await getCollection('blog', ({ data }) => !data.draft))
+    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+  return posts.map((post, index) => ({
     params: { slug: post.id },
-    props: { post },
+    props: {
+      post,
+      prev: posts[index + 1] ?? null,
+      next: posts[index - 1] ?? null,
+    },
   }));
 }
 
-const { post } = Astro.props;
+const { post, prev, next } = Astro.props;
 const { Content, headings } = await render(post);
 
 const words = post.body?.split(/\s+/).filter(Boolean).length ?? 0;
@@ -27,6 +32,8 @@ const readingTime = Math.max(1, Math.round(words / 200));
   image={post.data.image}
   readingTime={readingTime}
   headings={headings}
+  prev={prev ? { slug: prev.id, title: prev.data.title } : null}
+  next={next ? { slug: next.id, title: next.data.title } : null}
 >
   <Content />
 </BlogPost>
