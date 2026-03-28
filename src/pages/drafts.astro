@@ -1,0 +1,98 @@
+---
+import Base from '../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+
+const drafts = (await getCollection('blog', ({ data }) => data.draft === true))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .map((post) => ({
+    ...post,
+    readingTime: Math.max(1, Math.round((post.body?.split(/\s+/).filter(Boolean).length ?? 0) / 200)),
+  }));
+---
+
+<Base title="Drafts — Kara Labs" description="Unpublished draft posts.">
+  <div class="drafts-page">
+    <header class="drafts-header animate-in">
+      <h1>Drafts</h1>
+      <p>{drafts.length} unpublished {drafts.length === 1 ? 'post' : 'posts'}</p>
+    </header>
+
+    <div class="drafts-list animate-in delay-1">
+      {drafts.map((post) => {
+        const date = post.data.date.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+        });
+        return (
+          <a href={`/blog/${post.id}`} class="draft-card">
+            <div class="draft-meta">
+              <span class="draft-tag">{post.data.formatTag}</span>
+              <time>{date}</time>
+              <span>{post.readingTime} min read</span>
+            </div>
+            <h2>{post.data.title}</h2>
+            <p>{post.data.description}</p>
+          </a>
+        );
+      })}
+    </div>
+
+    {drafts.length === 0 && (
+      <div class="empty animate-in delay-1">
+        <p>No drafts right now.</p>
+      </div>
+    )}
+  </div>
+</Base>
+
+<style>
+  .drafts-page { max-width: var(--max-width); margin: 0 auto; padding: 3rem 1.5rem; }
+  .drafts-header { margin-bottom: 2rem; }
+  .drafts-header h1 { margin-bottom: 0.5rem; }
+  .drafts-header p { color: var(--text-dim); }
+  .drafts-list { display: flex; flex-direction: column; gap: 1rem; }
+  .draft-card {
+    display: block;
+    padding: 1.25rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid #f5a623;
+    border-radius: var(--radius);
+    text-decoration: none;
+    transition: all var(--transition);
+  }
+  .draft-card:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--border-accent);
+    border-left-color: #f5a623;
+  }
+  .draft-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: var(--font-size-3xs);
+    color: var(--text-dim);
+  }
+  .draft-tag {
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #f5a623;
+  }
+  .draft-card h2 {
+    font-size: var(--font-size-s);
+    color: var(--text);
+    margin-bottom: 0.25rem;
+    margin-top: 0;
+  }
+  .draft-card p {
+    font-size: var(--font-size-2xs);
+    color: var(--text-muted);
+    line-height: var(--line-height-content);
+    margin: 0;
+  }
+  .empty { text-align: center; padding: 4rem 0; }
+  .empty p { color: var(--text-dim); }
+</style>
