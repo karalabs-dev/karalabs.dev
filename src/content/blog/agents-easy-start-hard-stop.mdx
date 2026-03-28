@@ -48,15 +48,15 @@ No planning engine. No reasoning module. No agent runtime. `messages` is the mem
 
 > **Note:** `max_iterations` is not optional. Without it, a task that never reaches a stopping point runs until something external kills it. Every production agent needs a hard cap, and the experiments below show exactly why.
 
-LangGraph wraps this exact pattern. `add_edge("tools", "llm")` is the loop back. `tools_condition` is the exit check. `MessagesState` is the message list. The graph makes the loop inspectable and checkpointable, but the loop itself is unchanged.
+LangGraph wraps this same loop with state management and checkpointing. The loop itself is unchanged.
 
 ## Where the Exit Condition Breaks
 
-I ran four tasks through the same graph: arithmetic tools (`add`, `multiply`, `divide`) for the first three, DuckDuckGo search for the fourth. The loop code is identical in every run. The exit condition isn't.
+I ran four tasks through the same loop built in LangGraph: arithmetic tools (`add`, `multiply`, `divide`) for the first three, DuckDuckGo search for the fourth. The loop code is identical in every run. The exit condition isn't.
 
-**When the done state is obvious.** "Add 3 and 4. Multiply the output by 2. Divide the output by 5." Four loops, done. The task tells the model what to do at each step. This is a chain wearing an agent costume, a baseline, not a real use case.
+**When the done state is obvious.** "Add 3 and 4. Multiply the output by 2. Divide the output by 5." The model calls `add(3, 4)`, then `multiply(7, 2)`, then `divide(14, 5)`. Each step is spelled out in the task. The model never decides what to do next, it just follows instructions.
 
-**When the done state requires reasoning.** "Find two positive integers that multiply to 84 and add to 25." The answer exists (4 and 21), but the model has to guess, verify, and backtrack to find it. This run: 2 loops. Run it again: maybe 6. The loop count on reasoning tasks is a distribution, which means cost is too.
+**When the done state requires reasoning.** "Find two positive integers that multiply to 84 and add to 25." The answer exists (4 and 21), but the model has to discover it. It guessed a pair, called `multiply` and `add` to verify, saw both matched, and stopped. Run it again and it might try different pairs first, taking more iterations. The loop count depends on what the model guesses, which means cost does too.
 
 **When the done state can never be reached.** Change one digit: "...add to 24." No factor pair of 84 sums to 24. No solution exists, and the model has no tool that can prove it. `add` and `multiply` can check individual pairs, not enumerate exhaustively. So it keeps trying.
 
