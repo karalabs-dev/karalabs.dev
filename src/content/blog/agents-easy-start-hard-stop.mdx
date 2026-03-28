@@ -54,19 +54,25 @@ LangGraph wraps this same loop with state management and checkpointing. The loop
 
 I ran four tasks through the same loop built in LangGraph: arithmetic tools (`add`, `multiply`, `divide`) for the first three, DuckDuckGo search for the fourth. The loop code is identical in every run. The exit condition isn't.
 
-**When the done state is obvious.** "Add 3 and 4. Multiply the output by 2. Divide the output by 5." The model calls `add(3, 4)`, then `multiply(7, 2)`, then `divide(14, 5)`. Each step is spelled out in the task. The model never decides what to do next, it just follows instructions.
+**When the done state is obvious.**
 
-**When the done state requires reasoning.** "Find two positive integers that multiply to 84 and add to 25." The answer exists (4 and 21), but the model has to discover it. It guessed a pair, called `multiply` and `add` to verify, saw both matched, and stopped. Run it again and it might try different pairs first, taking more iterations. The loop count depends on what the model guesses, which means cost does too.
+> "Add 3 and 4. Multiply the output by 2. Divide the output by 5."
 
-**When the done state can never be reached.** Change one digit: "...add to 24." No factor pair of 84 sums to 24. No solution exists, and the model has no tool that can prove it. `add` and `multiply` can check individual pairs, not enumerate exhaustively. So it keeps trying.
+The model calls `add(3, 4)`, then `multiply(7, 2)`, then `divide(14, 5)`. Each step is spelled out in the task. The model never decides what to do next, it just follows instructions.
 
-`[IMAGE: notebook output, per-loop tool calls for task 3, showing the model retrying pairs across 20 loops, from notebook cell 15]`
+**When the done state requires reasoning.**
 
-The first run hit `recursion_limit` at 20 loops. By that point, input tokens had grown from 213 at loop 1 to 834 at loop 20. The model was re-reading the full history, including every failed attempt, on every call.
+> "Find two positive integers that multiply to 84 and add to 25. Use only the multiply and add tools to check your candidates. Try specific number pairs and verify each one."
 
-`[IMAGE: notebook output, context growth table, loop vs input tokens delta, from notebook cell 16]`
+The answer exists (4 and 21), but the model has to discover it. It guessed a pair, called `multiply` and `add` to verify, saw both matched, and stopped. Run it again and it might try different pairs first, taking more iterations. The loop count depends on what the model guesses, which means cost does too.
 
-Running it four more times revealed the real failure mode. Not one hit the limit. Every run exited on its own, but in two different ways:
+**When the done state can never be reached.**
+
+> "Find two positive integers that multiply to 84 and add to 24. Use only the multiply and add tools to check your candidates. Try specific number pairs and verify each one."
+
+No solution exists, and the model has no tool that can prove it. `add` and `multiply` can check individual pairs, not enumerate exhaustively. So it keeps trying.
+
+I ran this task five times. Not one hit the recursion limit. Every run exited on its own, but in two different ways:
 
 Four runs correctly concluded there was no answer:
 
@@ -76,31 +82,33 @@ One run returned a confident wrong answer:
 
 > "The two positive integers are 18 and 6."
 
-18 + 6 = 24 ✓. 18 × 6 = 108. Not 84.
+18 + 6 = 24 ✅ but 18 × 6 = 108, not 84 ❌
 
 The loop exited cleanly. No exception. No flag. From the code's perspective, it looked identical to a successful run.
 
-> **Note:** Catching `GraphRecursionError` only catches the failure that runs forever. A hallucinated answer exits quietly, same shape as a correct response, just wrong. The only way to catch it is to validate the output, not watch the loop.
+> **Note:** The dangerous failure isn't the one that crashes. It's the one that looks like success. A wrong answer exits the loop the same way a correct one does. No error, no signal. The only way to catch it is to check the answer itself.
 
-**When the done state is subjective.** Swap arithmetic for search and the problem changes completely. With math, the answer is verifiable. With search, there's no provably correct stopping point. The model has to decide: do I know enough?
+**When the done state is subjective.** Swap arithmetic for search and the problem changes completely.
 
-That decision is controlled by the system prompt. Tell it "search until you're confident" and it searches three times. Tell it "be thorough" and it searches six times. Tell it "be concise" and it stops at two with a weaker answer. The loop code doesn't change. The exit behavior does.
+> "Which AI model currently holds the top spot on the HumanEval coding benchmark? Is it from OpenAI, Anthropic, Google, or someone else? Search until you're confident, then give me a definitive answer with your source."
 
-**You can't fix sufficiency failures by tuning `recursion_limit`. You tune them through prompting.**
+With math, the answer is verifiable. With search, there's no provably correct stopping point. The model has to decide: do I know enough?
+
+That decision is controlled by the system prompt. Tell it "search until you're confident" and it searches five times. Tell it "be thorough" and it searches more. Tell it "be concise" and it stops sooner with a weaker answer. The loop code doesn't change. The exit behavior does.
+
+**You can't fix this by tuning `max_iterations`. You tune it through prompting.**
 
 ## When You Need an Agent
 
-If you're calling the model, taking the output, and moving on, you don't need an agent. That's just a function call. Chain a few of those together and you have a pipeline, not an agent.
+Not every task needs an agent.
 
-If the model picks one path out of a few fixed options and follows it, that's a single decision. No agent either.
+If you already know the steps, just run them in order. That's a **chain**.
 
-The "multiply to 84, add to 25" task couldn't be scripted. The model had to guess a pair, check it with tools, see it fail, try a different one. Step 2 depended on what step 1 returned. That requires an agent, and every agent requires an exit condition.
+If the model needs to pick one path out of a few, that's a **router**. One decision, done.
+
+If the model needs to try something, check the result, and decide what to try next, that's an **agent**. That requires a loop, and every loop requires an exit condition.
 
 `[IMAGE: diagram showing chain (A to B to C, linear), router (one fork to fixed branches), agent (loop with feedback) side by side]`
-
-`[IMAGE: notebook cell 22, summary table: all four tasks, loops, tokens, cost, exit condition]`
-
-> **Tip:** If you can draw the complete flowchart before the agent runs, all branches and all outputs, you don't need an agent. You're adding unpredictable cost and behavior to something that could have been a script.
 
 The agent isn't the interesting part. Every framework wraps the same loop. What matters is the exit condition: how you validate the output, and whether your task actually needs an agent at all. The framework gives you the scaffolding. You still have to get the stopping right.
 
