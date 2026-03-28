@@ -9,7 +9,7 @@ draft: true
 
 **TLDR:** Every agent is a while loop with an exit condition. The loop is thirty lines of Python. Getting the exit condition right is the entire engineering problem, and the failure modes are subtler than you'd expect.
 
-Starting an agent is simple. The model reads the message history, decides what to do, calls a tool or stops. Repeat. Thirty lines of Python.
+Every agent is a while loop. The model reads the message history, decides what to do, calls a tool or stops. Repeat. Thirty lines of Python.
 
 Knowing when to stop is where production agents break.
 
@@ -68,8 +68,7 @@ Running it four more times revealed the real failure mode. Not one hit the limit
 
 Four runs correctly concluded there was no answer:
 
-> "No two positive integers multiply to 84 and add to 24."
-> "The task is mathematically impossible within integers."
+> "No two positive integers multiply to 84 and add to 24. The task is mathematically impossible within integers."
 
 One run returned a confident wrong answer:
 
@@ -81,22 +80,28 @@ The loop exited cleanly. No exception. No flag. From the code's perspective, it 
 
 > **Note:** Catching `GraphRecursionError` only catches the failure that runs forever. A hallucinated answer exits quietly, same shape as a correct response, just wrong. The only way to catch it is to validate the output, not watch the loop.
 
-**When the done state is a judgment call.** Swap arithmetic tools for search and the failure mode shifts entirely. "Am I confident enough to stop?" is not a convergence question. It's a judgment call the model makes based on the system prompt. I asked it to find which model tops the HumanEval benchmark. It searched three times, concluded the benchmark is saturated, and stopped. Tell it to be thorough and it searches more. Tell it to be concise and it stops sooner.
+**When the done state is subjective.** Swap arithmetic for search and the problem changes completely. With math, the answer is verifiable. With search, there's no provably correct stopping point. The model has to decide: do I know enough?
+
+That decision is controlled by the system prompt. Tell it "search until you're confident" and it searches three times. Tell it "be thorough" and it searches six times. Tell it "be concise" and it stops at two with a weaker answer. The loop code doesn't change. The exit behavior does.
 
 **You can't fix sufficiency failures by tuning `recursion_limit`. You tune them through prompting.**
 
-## When You Need the Loop
+## When You Need an Agent
 
-**Chains:** fixed steps, fixed order. You decide the path, the model executes it. Faster, cheaper, and the exit condition is never a problem because there isn't one.
+If you're calling the model, taking the output, and moving on, you don't need an agent. That's just a function call. Chain a few of those together and you have a pipeline, not an agent.
 
-**Routers:** one decision, fixed branches. No iteration.
+If the model picks one path out of a few fixed options and follows it, that's a single decision. No agent either.
 
-**Agents:** you don't specify the sequence upfront. The model decides what to do next at each step based on what the previous step returned. The path is determined at runtime, not by you.
+The "multiply to 84, add to 25" task couldn't be scripted. The model had to guess a pair, check it with tools, see it fail, try a different one. Step 2 depended on what step 1 returned. That requires an agent, and every agent requires an exit condition.
 
 `[IMAGE: diagram showing chain (A to B to C, linear), router (one fork to fixed branches), agent (loop with feedback) side by side]`
 
 `[IMAGE: notebook cell 22, summary table: all four tasks, loops, tokens, cost, exit condition]`
 
-> **Tip:** If the model's next action doesn't depend on what the previous step returned, you don't need the loop. You're adding unpredictable cost and behavior to something that could have been a chain.
+> **Tip:** If you can draw the complete flowchart before the agent runs, all branches and all outputs, you don't need an agent. You're adding unpredictable cost and behavior to something that could have been a script.
 
-The while loop isn't the interesting part of agent design. Every framework wraps the same thirty lines. What matters is what you put in the exit condition, how you validate the output, and whether your task actually needs a loop at all. The framework gives you the scaffolding. You still have to get the exit condition right.
+The agent isn't the interesting part. Every framework wraps the same thirty lines. What matters is the exit condition: how you validate the output, and whether your task actually needs an agent at all. The framework gives you the scaffolding. You still have to get the stopping right.
+
+All experiments ran on **Gemini 3.1 Flash Lite** through LangGraph. A different model will produce different loop counts, different hallucination rates, and different exit behavior. The failure modes stay the same.
+
+**Code:** [GitHub](https://github.com/karalabs-dev/kara-playbook/tree/main/foundations/agents-easy-start-hard-stop)
