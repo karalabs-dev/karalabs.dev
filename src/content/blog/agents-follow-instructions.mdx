@@ -9,7 +9,7 @@ tags:
 draft: true
 ---
 
-**TLDR:** System prompts can say "you MUST use this tool." The model only follows that when it can't finish the task without calling the tool. If it can, it skips.
+**TLDR:** System prompts can say "**you MUST use this tool.**" The model only follows that when it can't finish the task without calling the tool. If it can, it skips.
 
 Agents pick which tools to call on every loop iteration. System prompts are supposed to constrain that choice. "Always classify first." "Validate before responding." "Log every query." But the model treats these as suggestions, not rules. Some tools get called every time. Others get ignored completely, regardless of how the prompt is worded.
 
@@ -19,7 +19,7 @@ I tested five tools on the same research agent to figure out which ones get foll
 
 ## The Experiment
 
-A research agent with a web search tool (Tavily). Five tools, each with a different job. Each experiment gives the agent one mandatory tool alongside web search, with a system prompt that explicitly says "you MUST use this tool." Same task every time: compare two AI agent frameworks.
+A research agent with a web search tool (Tavily). Five tools, each with a different job. Each experiment gives the agent one mandatory tool alongside web search, with a system prompt that explicitly says "**you MUST use this tool.**" Same task every time: `compare two AI agent frameworks`.
 
 The five tools:
 
