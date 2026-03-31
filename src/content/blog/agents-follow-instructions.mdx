@@ -15,7 +15,7 @@ Agents pick which tools to call on every loop iteration. System prompts are supp
 
 I tested five tools on the same research agent to figure out which ones get followed and which get skipped. The split wasn't random.
 
-{/* TODO: Image 1 — Agent loop diagram showing tool positions: classify/plan/log BEFORE web search, think/validate AFTER */}
+![697](./Attachments/agents-follow-instructions-1774921567445.webp)
 
 ## The Experiment
 
@@ -37,13 +37,15 @@ Each tool got its own system prompt. Every prompt used the same phrasing: "You M
 
 ## What Got Followed and What Got Skipped
 
-| Tool | Prompt Says | Runs Before Main Action | Smaller Model | Larger Model |
-|---|---|---|---|---|
-| Classify | Before web search | Yes | 100% (10/10) | 100% (10/10) |
-| Plan | Before web search | Yes | 100% (10/10) | 100% (10/10) |
-| Log | Before web search | Yes | 100% (10/10) | 100% (10/10) |
-| Think | Before web search | No | 0% (0/10) | 30% (3/10) |
-| Validate | After web search | No | 100% (10/10) | 10% (1/10) |
+| Tool     | Prompt Says       | Runs Before Main Action | Smaller Model | Larger Model |
+| -------- | ----------------- | ----------------------- | ------------- | ------------ |
+| Classify | Before web search | Yes                     | 100% (10/10)  | 100% (10/10) |
+| Plan     | Before web search | Yes                     | 100% (10/10)  | 100% (10/10) |
+| Log      | Before web search | Yes                     | 100% (10/10)  | 100% (10/10) |
+| Think    | Before web search | No                      | 0% (0/10)     | 30% (3/10)   |
+| Validate | After web search  | No                      | 100% (10/10)  | 10% (1/10)   |
+
+![697](./Attachments/agents-follow-instructions-1774921439265.webp)
 
 Classify, plan, and log all got 100% adherence on both models. The model can't finish the task without calling them first. Classify shapes the search query. Plan structures what to search for. Log has to run before search is allowed.
 
@@ -92,7 +94,7 @@ builder.add_edge('validate', END)
 graph = builder.compile()
 ```
 
-{/* TODO: Image 2 — Before/after LangGraph diagrams. Before: validate as optional tool. After: validate as hardcoded node between LLM and END */}
+![697](./Attachments/agents-follow-instructions-1774921361598.webp)
 
 The model never sees this node as a tool. It's part of the graph. Same principle applies to logging, PII redaction, or anything else that can't be optional. Frameworks like Guardrails AI package this as middleware.
 
