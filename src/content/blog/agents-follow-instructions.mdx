@@ -9,70 +9,70 @@ tags:
 draft: true
 ---
 
-**TLDR:** System prompts can say "you MUST use this tool." The model only follows that when the tool's output affects what it does next. If it doesn't, the model skips it.
+**TLDR:** System prompts can say "you MUST use this tool." The model only follows that when the tool sits between it and the next action. Tools that run after the work is done get skipped.
 
-Agents pick which tools to call on every loop iteration. System prompts are supposed to constrain that choice — "always classify first," "validate before responding," "log every query." But the model treats these as suggestions, not rules. Some tools get called every time. Others get ignored completely, regardless of how the prompt is worded.
+Agents pick which tools to call on every loop iteration. System prompts are supposed to constrain that choice. "Always classify first." "Validate before responding." "Log every query." But the model treats these as suggestions, not rules. Some tools get called every time. Others get ignored completely, regardless of how the prompt is worded.
 
 I tested five tools on the same research agent to figure out which ones get followed and which get skipped. The split wasn't random.
 
-{/* TODO: Image 1 — Agent loop diagram showing tool positions: classify/plan/log BEFORE search, think/validate AFTER */}
+{/* TODO: Image 1 — Agent loop diagram showing tool positions: classify/plan/log BEFORE web search, think/validate AFTER */}
 
 ## The Experiment
 
-A LangGraph research agent with Tavily search. Five tools, each with a different job. Each experiment gives the agent one mandatory tool alongside search, with a system prompt that explicitly says "you MUST use this tool." Same task every time: compare LangGraph and CrewAI for multi-agent systems.
+A research agent with a web search tool (Tavily). Five tools, each with a different job. Each experiment gives the agent one mandatory tool alongside web search, with a system prompt that explicitly says "you MUST use this tool." Same task every time: compare two AI agent frameworks.
 
 The five tools:
 
-**Classify** — takes the query, returns a category label like "framework comparison." The model uses this label to decide how to search.
+**Classify** takes the query, returns a category label like "framework comparison." The model uses this label to decide how to search.
 
-**Plan** — takes the query, returns a list of sub-questions. The model uses these sub-questions to structure its searches.
+**Plan** takes the query, returns a list of sub-questions. The model uses these sub-questions to structure its searches.
 
-**Log** — takes the query, returns a confirmation ID. Audit trail for compliance. The model doesn't use the ID, but the return value confirms the action happened.
+**Log** takes the query, returns a confirmation ID. Audit trail for compliance. The model doesn't need the ID for its task, but the tool sits between the model and the web search. It has to go through log to get to search.
 
-**Think** — takes the model's reasoning so far, returns "Thought noted. Continue with your research." A scratchpad. The return value adds nothing.
+**Think** takes the model's reasoning so far, returns "Thought noted. Continue with your research." A scratchpad. The return value adds nothing, and the model can search without it.
 
-**Validate** — takes the draft answer and sources, returns pass/fail with specific issues (missing citations, unsupported claims, hedge words). Meant to run after the model has an answer, before it responds.
+**Validate** takes the draft answer and sources, returns pass/fail with specific issues (missing citations, unsupported claims, hedge words). Runs after the model already has its answer, before it responds.
 
-Each tool got its own system prompt. Every prompt used the same phrasing: "You MUST use [tool] before [searching / responding]." 10 runs per tool, on both Gemini 3.1 Flash Lite and Gemini 3.1 Pro.
+Each tool got its own system prompt. Every prompt used the same phrasing: "You MUST use [tool] before [searching / responding]." 10 runs per tool, on a smaller model and a larger one.
 
 ## What Got Followed and What Got Skipped
 
-| Tool | Returns | Flash Lite | Pro |
-|---|---|---|---|
-| Classify | Category label | 100% (10/10) | 100% (10/10) |
-| Plan | Sub-questions | 100% (10/10) | 100% (10/10) |
-| Log | Confirmation ID | 100% (10/10) | 100% (10/10) |
-| Think | "Thought noted" | 0% (0/10) | 30% (3/10) |
-| Validate | Pass/fail + issues | 100% (10/10) | 10% (1/10) |
+| Tool | Prompt Says | Runs Before Main Action | Smaller Model | Larger Model |
+|---|---|---|---|---|
+| Classify | Before web search | Yes | 100% (10/10) | 100% (10/10) |
+| Plan | Before web search | Yes | 100% (10/10) | 100% (10/10) |
+| Log | Before web search | Yes | 100% (10/10) | 100% (10/10) |
+| Think | Before web search | No | 0% (0/10) | 30% (3/10) |
+| Validate | After web search | No | 100% (10/10) | 10% (1/10) |
 
-Classify, plan, and log all got 100% adherence on both models. All three return something the model incorporates into its next action — a label that shapes the search query, sub-questions that guide what to search for, a confirmation that the required step happened.
+Classify, plan, and log all got 100% adherence on both models. All three sit between the model and the web search. The model goes through them to get to the next step. Classify shapes the search query. Plan structures what to search for. Log gates the search behind a compliance step.
 
-Think got skipped almost entirely. Flash Lite never called it once across 10 runs despite "Before EVERY search, you MUST use the think tool" in the system prompt. Pro used it in 3 out of 10 runs. The return value — "Thought noted" — gives the model nothing to work with. There's no reason to call it if the output doesn't change what happens next.
+Think got skipped almost entirely. The smaller model never called it once across 10 runs despite "Before EVERY search, you MUST use the think tool" in the system prompt. The larger model used it in 3 out of 10 runs. The prompt says to call it before searching, but the model can search without it. Nothing blocks the path.
 
-Validate is the interesting one. Flash Lite followed it every run — searched, validated, responded. Pro skipped it 9 out of 10 times. Same system prompt, same tool, same task. Pro searched, had the answer, and responded without checking. No error, no crash. The output looked identical to a validated run.
+Validate is the interesting one. The smaller model followed it every run. Searched, validated, responded. The larger model skipped it 9 out of 10 times. Same system prompt, same tool, same task. It searched, had the answer, and responded without checking. No error, no crash. The output looked identical to a validated run.
 
-The split isn't about tool importance. Validate is arguably the most critical tool in the set — it catches bad answers. But by the time validate would run, the model already has its answer. The tool's output — pass or fail — doesn't change the model's next action. It already decided what to say.
+The split isn't about tool importance. Validate is arguably the most critical tool in the set. It catches bad answers. But by the time validate would run, the work is done. The model already has its answer and there's nothing standing between it and the response.
 
-Pro skips more because it's more confident. It runs more searches (2.8 per run vs Flash Lite's 1.0), builds a thorough answer, and decides the check is redundant. The stronger model is less compliant, not more.
+The larger model skips more because it's more confident. It runs more searches (2.8 per run vs 1.0), builds a thorough answer, and decides the check is redundant. The stronger model is less compliant, not more.
 
 ## Prompting Partially Fixes It
 
-Adding few-shot examples — showing the model a complete workflow where think gets called before each search — changed the numbers:
+Adding few-shot examples changed the numbers. Instead of just telling the model to use think, the prompt included a complete workflow showing think being called before each search:
 
-- Think on Flash Lite: 0% → 100%
-- Think on Pro: 30% → 90%
+- Smaller model: 0% → 100%
+- Larger model: 30% → 90%
 
-The model didn't skip because the instruction was unclear. It skipped because it had no pattern for using a tool with a useless return value. Once shown how, Flash Lite followed it perfectly. Pro still skipped 1 in 10.
+The model didn't skip because the instruction was unclear. It skipped because it had no pattern for calling a tool that doesn't block the next step. Once shown how, the smaller model followed it perfectly. The larger model still skipped 1 in 10.
 
 Better prompting moves the needle. It doesn't close the gap. A 10% skip rate on a compliance or safety check is still a production problem.
 
 ## Moving Tools Out of the Toolbox
 
-The system prompt says "must." The model evaluates whether the tool's return value changes what happens next. If it doesn't, the instruction gets dropped.
+The system prompt says "must." The model evaluates whether the tool stands between it and the next action. If it doesn't, the instruction gets dropped.
 
 Stronger wording won't fix this. Few-shot examples won't fully fix it either. If a step must always happen, it can't be a tool the model chooses to call.
 
-In LangGraph, validation can be a node instead of a tool — a step that runs unconditionally between the last tool call and the response:
+In LangGraph, validation can be a node instead of a tool. A step that runs unconditionally between the last tool call and the response:
 
 ```python
 def validate_node(state: MessagesState):
@@ -98,5 +98,5 @@ The model never sees this node as a tool. It's part of the graph. Same principle
 
 If a step must always happen, it doesn't belong in the agent's toolbox. It belongs in the graph.
 
-*Gemini 3.1 Flash Lite and Gemini 3.1 Pro. LangGraph. 10 runs per experiment.
+*Smaller model: Gemini 3.1 Flash Lite. Larger model: Gemini 3 Flash. LangGraph. 10 runs per experiment. Results will vary by model. The skip patterns won't.
 Code: [GitHub](https://github.com/karalabs-dev/kara-playbook)*
