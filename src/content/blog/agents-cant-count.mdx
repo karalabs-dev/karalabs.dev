@@ -23,6 +23,8 @@ A LangGraph agent with four tools that read a GitHub repository:
 
 50 factual questions about [Click](https://github.com/pallets/click), a well-known Python CLI library. Every answer has a ground truth.
 
+![490](./Attachments/agents-cant-count-1775016488802.webp)
+
 ## How Many Python Files?
 
 The first question: "How many Python files are in this repo?"
@@ -67,6 +69,8 @@ Observation accuracy is 88%+ everywhere. Computation always lags. Planning made 
 ## The Fix
 
 The agent had tools to *fetch* data. It had no tools to *compute* on it.
+
+![697](./Attachments/agents-cant-count-1775016519209.webp)
 
 ```python
 @tool
