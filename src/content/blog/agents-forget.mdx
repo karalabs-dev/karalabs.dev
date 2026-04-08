@@ -1,0 +1,85 @@
+---
+title: "Your Agent Forgets After 15 Turns"
+description: "I tested 4 context management strategies on a 30-turn agent task. Every strategy that preserves knowledge costs something that eventually breaks it."
+date: 2026-04-08
+formatTag: Fundamentals
+tags:
+  - LangGraph
+  - Context Engineering
+draft: true
+---
+
+**TLDR:** By turn 15, your agent has lost access to facts from turn 1. I tested 4 ways to manage context in a 30-turn agent: baseline (drop oldest), sliding window (keep last N), running summary (compress old messages), and scratchpad (externalize facts). Every strategy preserves knowledge by trading something else. There's no free lunch.
+
+Context rot is predictable. An LLM re-sends the entire conversation on every call. By turn 10, the context is thousands of tokens. By turn 15, facts from early turns are getting pushed out. By turn 20, the agent confidently answers questions about facts it no longer has access to.
+
+I ran 4 strategies on the same 30-turn task to see where each one breaks.
+
+## The Experiment
+
+A LangGraph agent that learns 10 facts about a fictional framework (AgentForge) across turns 1-10, then gets quizzed on them across turns 11-30. The questions get progressively harder:
+
+- **Phase 1 (T1-T10):** Learn facts. "AgentForge is written in Go 78.2% and Rust 21.8%."
+- **Phase 2 (T11-T16):** Easy recall. Recent facts, still in context.
+- **Phase 3 (T17-T23):** Mid-range recall. Facts from T3-T6, likely trimmed by now.
+- **Phase 4 (T24-T30):** Deep recall. Facts from T1-T4. Earliest facts, longest gone.
+
+Fictional framework so the model can't cheat from training data. Every correct answer must come from the conversation. Simulated context window of 1,400 tokens forces strategies to activate early.
+
+Four strategies, same graph topology, same model (Gemini 2.5 Flash Lite), 5 runs each:
+
+```
+START -> context_manager -> llm -> END
+```
+
+The `context_manager` node is swapped per strategy. Everything else is identical.
+
+## The 4 Strategies
+
+**Baseline** drops oldest messages when tokens exceed the budget. No intelligence, no preservation. The dumb default.
+
+**Sliding window** keeps the last 12 messages. Everything older is gone. Simple, predictable, brutal.
+
+**Running summary** compresses older messages into a rolling bullet-point summary via an LLM call. The summary replaces raw history. Lossy compression that compounds each time.
+
+**Scratchpad** gives the agent `write_scratchpad` and `read_scratchpad` tools. Facts are saved to a state field, injected into the system message every turn. Messages get trimmed, facts survive.
+
+## Results
+
+| Strategy | Accuracy | Retention (T30) | Cost | P1 (Facts) | P2 (Recent) | P3 (Mid) | P4 (Recall) |
+|----------|----------|-----------------|------|------------|-------------|----------|-------------|
+| Baseline | 0.50 | 0.00 | $0.003 | 1.00 | 0.67 | 0.14 | 0.00 |
+| Sliding Window | 0.47 | 0.00 | $0.002 | 1.00 | 0.50 | 0.00 | 0.14 |
+| Summary | 0.73 | 1.00 | $0.004 | 1.00 | 0.67 | 0.43 | 0.71 |
+| Scratchpad | 1.00 | 1.00 | $0.010 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+Phase 1 is perfect across the board. Every strategy handles the first 10 turns. The differentiation starts at Phase 2 and widens from there.
+
+Baseline and sliding window both hit zero on retention. By turn 30, they've lost every fact from the first 10 turns. Sliding window is actually worse than baseline on Phase 3 because it drops messages in larger chunks.
+
+Summary holds up to 0.73 accuracy and perfect retention on the final turn. The rolling compression preserves enough structure to answer recall questions. It's the best strategy that stays within the token budget.
+
+Scratchpad is perfect. 100% across every phase. But it costs 3x more tokens than summary because the growing scratchpad inflates every LLM call, and the tool loop adds overhead per turn.
+
+## Every Strategy Has a Failure Mode
+
+| Strategy | What it trades | How it fails |
+|----------|---------------|-------------|
+| Baseline | Old facts | Forgets everything gradually |
+| Sliding Window | Old facts | Forgets everything faster (cliff, not slope) |
+| Summary | Precision | Facts degrade with each compression pass |
+| Scratchpad | Token budget | Facts survive but conversation space shrinks to zero |
+
+Scratchpad's failure is the most counterintuitive. It has perfect accuracy, but the system message grows linearly with every saved fact. At turn 30, the system message alone is ~800 tokens out of a 1,400 token budget. The tool loop adds ~200 more. The scratchpad "cheats" the budget constraint. In a real system with a hard context limit, it eventually crowds out the conversation entirely.
+
+Summary is the most practical winner. It stays within budget and retains 71% of the earliest facts. The tradeoff is precision loss on each compression pass. Whether that's acceptable depends on your use case.
+
+## Choosing a Strategy
+
+- **Don't care about old context?** Sliding window. Cheapest, simplest, brutal.
+- **Need approximate retention?** Running summary. Stays within budget, good enough for most cases.
+- **Need perfect retention, short conversations?** Scratchpad. Unbeatable accuracy, but token growth is linear.
+- **Need perfect retention, long conversations?** You've outgrown context engineering. You need retrieval.
+
+*Gemini 2.5 Flash Lite. LangGraph 1.1.6. 5 runs per strategy. Simulated 1,400-token context window.
+Code: [GitHub](https://github.com/karalabs-dev/kara-playbook/tree/main/foundations/context-management)*
