@@ -10,8 +10,9 @@ tags:
 draft: true
 ---
 
-**TLDR:** When conversations get too long, agents summarize old messages to free up context window. The summarizer is an LLM call with its own prompt. One line added to that summarizer's prompt changed recall from 29% to 86%.
-The decision to summarize old messages is an architectural choice. *How* they get summarized is a prompt engineering choice. And the prompt matters more.
+**TLDR:** When conversations get too long, agents summarize old messages to free up context window. The summarizer is an LLM call with its own prompt. One line added to that summarizer's prompt changed recall from **29% to 86%**.
+
+The decision to summarize old messages is an architectural choice. **How** they get summarized is a prompt engineering choice. And the prompt matters more.
 
 ## The Setup
 
@@ -89,7 +90,7 @@ Early fact recall: 0.29 to 0.86. The gap exists everywhere, but it's widest on e
 ![697](./Attachments/summarizer-prompt-1776190171102.png)
 ## The Summarizer Is a Hidden Prompt
 
-Most context management comparisons stop at the architecture: sliding window vs. summary vs. scratchpad. But any strategy that uses an LLM internally has a prompt that shapes what survives. The architecture is the easy part. The prompt inside it is where the performance lives.
+Any strategy that uses an LLM internally has a prompt that shapes what survives. The architecture is the easy part. The prompt inside it is where the performance lives.
 
 If your agent is losing facts it shouldn't be, check the summarizer's prompt before rethinking the pipeline. The compression might be fine. The instructions inside it might not be.
 
