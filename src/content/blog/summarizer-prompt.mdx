@@ -1,13 +1,13 @@
 ---
 title: "Agent Memory Depends on a Prompt Nobody Tests"
 description: "Two summarizer prompts. Same architecture. One recalled 29% of early facts, the other 86%."
-date: 2026-04-09
+date: 2026-04-12
 formatTag: Fundamentals
 tags:
   - LangGraph
   - Context Engineering
   - Prompting
-draft: true
+draft: false
 ---
 
 **TLDR:** When conversations get too long, agents summarize old messages to free up context window. The summarizer is an LLM call with its own prompt. One line added to that summarizer's prompt changed recall from **29% to 86%**.
