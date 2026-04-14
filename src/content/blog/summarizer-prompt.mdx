@@ -1,6 +1,6 @@
 ---
-title: "One Prompt Line Changed Recall from 29% to 71%"
-description: "Same summary strategy, same token budget, same architecture. One line in the summarizer's prompt made the difference."
+title: "Agent Memory Depends on a Prompt Nobody Tests"
+description: "Two summarizer prompts. Same architecture. One recalled 29% of early facts, the other 86%."
 date: 2026-04-09
 formatTag: Fundamentals
 tags:
@@ -10,15 +10,16 @@ tags:
 draft: true
 ---
 
-**TLDR:** A running summary strategy compressed old messages into bullet points. It worked, but the agent couldn't answer "what was the fact from Turn 3?" because the summary dropped turn numbers. Adding one line to the summarizer prompt, "always prefix each bullet with its turn number," jumped Phase 4 recall from 29% to 71%. The architecture wasn't the problem. The prompt inside the architecture was.
-
-Context management isn't just about what strategy you pick. It's about how you implement the strategy. The running summary is a good example: the decision to compress old messages is an architectural choice. *How* you compress them is a prompt engineering choice. And the prompt matters more.
+**TLDR:** When conversations get too long, agents summarize old messages to free up context window. The summarizer is an LLM call with its own prompt. One line added to that summarizer's prompt changed recall from 29% to 86%.
+The decision to summarize old messages is an architectural choice. *How* they get summarized is a prompt engineering choice. And the prompt matters more.
 
 ## The Setup
 
-A LangGraph agent learns 10 facts about a fictional framework across turns 1-10, then gets quizzed on them across turns 11-30. The running summary strategy compresses older messages into a rolling summary via an LLM call, keeping the last 8 messages verbatim.
+A LangGraph agent learns 10 facts about a fictional framework across turns 1–10, then gets quizzed on them across turns 11–30. When the conversation gets too long, a `summarize` node compresses older messages into bullet points, keeping the last 4 verbatim.
 
-The summary gets re-compressed each time new messages overflow. By turn 20, the summary has been through 4-5 compression passes. Each pass risks losing detail.
+![[summarizer-prompt-1776175121442.gif|443]]
+
+The summary gets re-compressed as the conversation grows. By turn 20, it's been through multiple compression passes. Each pass risks losing detail.
 
 ## The Bad Prompt
 
@@ -33,14 +34,13 @@ This produces summaries like:
 - AgentForge is written in Go 78.2% and Rust 21.8%
 - All agents inherit from CoreAgent
 - Three workflow agents: PipelineAgent, SwarmAgent, CycleAgent
-- BridgeCapability enables agent-to-agent delegation
 ```
 
 Clean. Accurate. Missing one thing: which fact came from which turn.
 
 When the agent gets asked "what was the exact fact from Turn 3?", it has the fact (PipelineAgent, SwarmAgent, CycleAgent) but no way to know it was Turn 3's fact. The summary merged 10 facts into an unlabeled list.
 
-Phase 4 recall (asking about specific turns): **29%**.
+Early fact recall: **29%**.
 
 ## The Fix
 
@@ -70,43 +70,28 @@ Now the summary looks like:
 - T1: Go 78.2%, Rust 21.8%, 4,312 stars, 1,847 commits
 - T2: CoreAgent base class, Execute(ctx RunContext) method
 - T3: PipelineAgent, SwarmAgent, CycleAgent (Halt=true stops)
-- T4: BridgeCapability (delegation), FuncCapability (doc comments -> description)
 ```
 
 Same facts. Same token count. Each bullet tagged with its turn.
 
 ## Results
 
-| Metric | Bad Prompt | Good Prompt |
-|--------|-----------|-------------|
-| Overall Accuracy | 0.50 | 0.73 |
-| P2 (Recent facts) | 0.33 | 0.67 |
-| P3 (Mid-range recall) | 0.14 | 0.43 |
-| **P4 (Deep recall)** | **0.29** | **0.71** |
-| Retention (T30) | 0.00 | 1.00 |
-| Token cost | $0.003 | $0.004 |
+| Metric                | Bad Prompt | Good Prompt |
+| --------------------- | ---------- | ----------- |
+| Overall Accuracy      | 0.60       | 0.83        |
+| Recent facts          | 0.50       | 0.83        |
+| Mid-range recall      | 0.43       | 0.57        |
+| **Early fact recall** | **0.29**   | **0.86**    |
 
-Same strategy. Same architecture. Same token budget. Same model. The only difference: one line telling the summarizer to preserve turn numbers.
+Same architecture. Same model. One line different.
 
-P4 recall went from 0.29 to 0.71. Retention on the final turn went from 0.00 to 1.00. The cost difference is negligible ($0.001 more).
+Early fact recall: 0.29 to 0.86. The gap exists everywhere, but it's widest on early facts those only survive inside the summary. That's where the prompt matters most.
 
-## Why This Matters
+## The Summarizer Is a Hidden Prompt
 
-The running summary strategy makes an internal LLM call to compress old messages. That LLM call has its own prompt. That prompt is part of the architecture, but it's invisible in most context management tutorials.
+Most context management comparisons stop at the architecture: sliding window vs. summary vs. scratchpad. But any strategy that uses an LLM internally has a prompt that shapes what survives. The architecture is the easy part. The prompt inside it is where the performance lives.
 
-When people evaluate context strategies, they compare architectures: "sliding window vs. summary vs. scratchpad." But the summary strategy's performance depends entirely on what you tell the summarizer to preserve. The same architecture can score 29% or 71% on recall depending on one line.
-
-This extends beyond summaries. Any context management strategy that uses an LLM internally (summarization, importance scoring, selective retrieval) has a prompt that shapes what survives compression. That prompt is as important as the strategy itself.
-
-## The Pattern
-
-When your context management strategy involves an internal LLM call:
-
-1. **Identify what downstream tasks need.** The agent will be asked to recall facts by turn number. The summary must preserve turn numbers.
-2. **Encode that in the internal prompt.** Don't rely on the LLM to figure out what to keep. Tell it explicitly.
-3. **Test the internal prompt separately.** Run the summarizer in isolation with known inputs. Check that the output contains what you need.
-
-The architecture is the easy part. The prompts inside the architecture are where the performance lives.
+If your agent is losing facts it shouldn't be, check the summarizer's prompt before rethinking the pipeline. The compression might be fine. The instructions inside it might not be.
 
 *Gemini 2.5 Flash Lite. LangGraph 1.1.6. 5 runs per experiment. 30-turn task with fictional AgentForge facts.
 Code: [GitHub](https://github.com/karalabs-dev/kara-playbook/tree/main/foundations/summarizer-prompt)*
