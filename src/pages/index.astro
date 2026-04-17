@@ -147,12 +147,11 @@ const posts = (await getCollection('blog', ({ data }) => !data.draft))
   .areas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
   .area-card {
     padding: 1rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--accent-glow);
     border-radius: var(--radius);
-    transition: border-color var(--transition), background var(--transition);
+    transition: transform var(--transition);
   }
-  .area-card:hover { border-color: var(--border-accent); }
+  .area-card:hover { transform: translateY(-2px); }
   .area-icon { width: 24px; height: 24px; color: var(--accent); margin-bottom: 0.5rem; }
   .area-card h3 { font-size: 1rem; margin-bottom: 0.5rem; }
   .area-card p { font-size: var(--font-size-xs); color: var(--text-dim); line-height: var(--line-height-compact); margin-bottom: 0; }

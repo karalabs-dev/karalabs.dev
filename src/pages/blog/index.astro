@@ -170,15 +170,15 @@ const featuredDate = featured?.data.date.toLocaleDateString('en-US', {
     padding: 0.6rem 1rem 0.6rem 2.25rem;
 
     font-size: var(--font-size-2xs);
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--accent-glow);
+    border: none;
     border-radius: var(--radius);
     color: var(--text);
     outline: none;
-    transition: border-color var(--transition);
+    transition: background var(--transition);
   }
   .search-input::placeholder { color: var(--text-dim); }
-  .search-input:focus { border-color: var(--border-accent); }
+  .search-input:focus { background: var(--accent-glow); box-shadow: 0 0 0 2px var(--accent-glow); }
   .search-input::-webkit-search-cancel-button { cursor: pointer; }
   .blog-header h1 { margin-bottom: 0.5rem; }
   .blog-header p { color: var(--text-dim); }
@@ -197,27 +197,24 @@ const featuredDate = featured?.data.date.toLocaleDateString('en-US', {
     letter-spacing: 0.03em;
     padding: 0.4rem 0.9rem;
     border-radius: 4px;
-    border: 1px solid var(--border);
-    background: transparent;
+    border: none;
+    background: var(--bg-raised);
     color: var(--text-dim);
     cursor: pointer;
-    transition: all var(--transition);
+    transition: background var(--transition), color var(--transition);
   }
-  .cat-btn:hover { border-color: var(--border-accent); color: var(--text-muted); }
-  .cat-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+  .cat-btn:hover { background: var(--accent-glow); color: var(--text); }
+  .cat-btn.active { background: var(--accent-glow); color: var(--accent); }
   .featured-post {
     display: block;
     margin-bottom: 2rem;
     padding: 1.5rem;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+    background: var(--accent-glow);
     border-radius: var(--radius);
     text-decoration: none;
-    transition: all var(--transition);
+    transition: transform var(--transition);
   }
   .featured-post:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--border-accent);
     transform: translateY(-2px);
   }
   .featured-image {
